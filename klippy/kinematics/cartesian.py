@@ -44,6 +44,7 @@ class CartKinematics:
         self.max_z_accel = config.getfloat('max_z_accel', max_accel,
                                            above=0., maxval=max_accel)
         self.limits = [(1.0, -1.0)] * 3
+        self.xy_home = config.getboolean('simultaneous_xy_homing', False)
     def get_steppers(self):
         return [s for rail in self.rails for s in rail.get_steppers()]
     def calc_position(self, stepper_positions):
@@ -87,9 +88,32 @@ class CartKinematics:
             forcepos[axis] += 1.5 * (position_max - hi.position_endstop)
         # Perform homing
         homing_state.home_rails([rail], forcepos, homepos)
+
+    def home_xy(self, homing_state, x_rail, y_rail):
+        x_min, x_max = x_rail.get_range()
+        hi_x = x_rail.get_homing_info()
+        y_min, y_max = y_rail.get_range()
+        hi_y = y_rail.get_homing_info()
+        homepos = [None, None, None, None]
+        homepos[0] = hi_x.position_endstop
+        homepos[1] = hi_y.position_endstop
+        forcepos = list(homepos)
+        if hi_x.positive_dir:
+            forcepos[0] -= 1.5 * (hi_x.position_endstop - x_min)
+        else:
+            forcepos[0] += 1.5 * (x_max - hi_x.position_endstop)
+        if hi_y.positive_dir:
+            forcepos[1] -= 1.5 * (hi_y.position_endstop - y_min)
+        else:
+            forcepos[1] += 1.5 * (y_max - hi_y.position_endstop)
+        homing_state.home_rails([x_rail, y_rail], forcepos, homepos)
     def home(self, homing_state):
-        # Each axis is homed independently and in order
-        for axis in homing_state.get_axes():
+        axes = homing_state.get_axes()
+        if (self.xy_home and self.dc_module is None and
+                0 in axes and 1 in axes):
+            self.home_xy(homing_state, self.rails[0], self.rails[1])
+            axes = [a for a in axes if a not in (0, 1)]
+        for axis in axes:
             if self.dc_module is not None and axis == self.dual_carriage_axis:
                 self.dc_module.home(homing_state, self.dual_carriage_axis)
             else:

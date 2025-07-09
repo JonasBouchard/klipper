@@ -28,6 +28,7 @@ class CoreXYKinematics:
         self.max_z_accel = config.getfloat(
             'max_z_accel', max_accel, above=0., maxval=max_accel)
         self.limits = [(1.0, -1.0)] * 3
+        self.xy_home = config.getboolean('simultaneous_xy_homing', False)
         ranges = [r.get_range() for r in self.rails]
         self.axes_min = toolhead.Coord(*[r[0] for r in ranges], e=0.)
         self.axes_max = toolhead.Coord(*[r[1] for r in ranges], e=0.)
@@ -46,8 +47,11 @@ class CoreXYKinematics:
             if axis_name in clear_axes:
                 self.limits[axis] = (1.0, -1.0)
     def home(self, homing_state):
-        # Each axis is homed independently and in order
-        for axis in homing_state.get_axes():
+        axes = homing_state.get_axes()
+        if self.xy_home and 0 in axes and 1 in axes:
+            self.home_xy(homing_state, self.rails[0], self.rails[1])
+            axes = [a for a in axes if a not in (0, 1)]
+        for axis in axes:
             rail = self.rails[axis]
             # Determine movement
             position_min, position_max = rail.get_range()
@@ -59,8 +63,26 @@ class CoreXYKinematics:
                 forcepos[axis] -= 1.5 * (hi.position_endstop - position_min)
             else:
                 forcepos[axis] += 1.5 * (position_max - hi.position_endstop)
-            # Perform homing
             homing_state.home_rails([rail], forcepos, homepos)
+
+    def home_xy(self, homing_state, x_rail, y_rail):
+        x_min, x_max = x_rail.get_range()
+        hi_x = x_rail.get_homing_info()
+        y_min, y_max = y_rail.get_range()
+        hi_y = y_rail.get_homing_info()
+        homepos = [None, None, None, None]
+        homepos[0] = hi_x.position_endstop
+        homepos[1] = hi_y.position_endstop
+        forcepos = list(homepos)
+        if hi_x.positive_dir:
+            forcepos[0] -= 1.5 * (hi_x.position_endstop - x_min)
+        else:
+            forcepos[0] += 1.5 * (x_max - hi_x.position_endstop)
+        if hi_y.positive_dir:
+            forcepos[1] -= 1.5 * (hi_y.position_endstop - y_min)
+        else:
+            forcepos[1] += 1.5 * (y_max - hi_y.position_endstop)
+        homing_state.home_rails([x_rail, y_rail], forcepos, homepos)
     def _check_endstops(self, move):
         end_pos = move.end_pos
         for i in (0, 1, 2):

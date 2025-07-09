@@ -237,6 +237,10 @@ max_z_accel:
 #   This sets the maximum acceleration (in mm/s^2) of movement along
 #   the z axis. It limits the acceleration of the z stepper motor. The
 #   default is to use max_accel for max_z_accel.
+simultaneous_xy_homing: False
+#   If set to True, the X and Y axes will be homed together when both
+#   axes are included in a homing command. The default is to home each
+#   axis sequentially.
 
 # The stepper_x section is used to describe the stepper controlling
 # the X axis in a cartesian robot.
@@ -433,6 +437,10 @@ max_z_accel:
 #   This sets the maximum acceleration (in mm/s^2) of movement along
 #   the z axis. It limits the acceleration of the z stepper motor. The
 #   default is to use max_accel for max_z_accel.
+simultaneous_xy_homing: False
+#   If set to True, the X and Y axes will be homed together when both
+#   axes are included in a homing command. The default is to home each
+#   axis sequentially.
 
 # The stepper_x section is used to describe the X axis as well as the
 # stepper controlling the X+Y movement.
